@@ -1,0 +1,24 @@
+---
+__nagiossso_packages:
+  Debian:
+    - libapache2-mod-auth-openidc
+  RedHat:
+    - mod_auth_openidc
+
+__nagiossso_apache_service:
+  Debian: apache2
+  RedHat: httpd
+
+__nagiossso_apache_conf_dir:
+  Debian: /etc/apache2/conf-available
+  RedHat: /etc/httpd/conf.d
+
+__nagiossso_sso_contacts: >-
+  {{ (nagiosconfig_contacts | default({})) | dict2items
+     | selectattr('value.sso', 'defined') | selectattr('value.sso', 'equalto', true)
+     | map(attribute='key') | map('lower') | list }}
+
+__nagiossso_absent_contacts: >-
+  {{ (nagiosconfig_contacts | default({})) | dict2items
+     | selectattr('value.state', 'defined') | selectattr('value.state', 'equalto', 'absent')
+     | map(attribute='key') | map('lower') | list }}

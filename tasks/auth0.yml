@@ -1,0 +1,205 @@
+---
+- name: Assert the Auth0 management credentials are set
+  ansible.builtin.assert:
+    that:
+      - nagiossso_auth0_domain | length > 0
+      - nagiossso_auth0_mgmt_client_id | length > 0
+      - nagiossso_auth0_mgmt_client_secret | length > 0
+      - nagiossso_client_id | length > 0
+    fail_msg: >-
+      nagiossso_manage_action is enabled but the Auth0 management credentials are incomplete.
+      Set nagiossso_auth0_domain, nagiossso_auth0_mgmt_client_id,
+      nagiossso_auth0_mgmt_client_secret and nagiossso_client_id in your inventory.
+  run_once: true
+  no_log: true
+
+- name: Refuse to deploy an empty allowlist
+  ansible.builtin.assert:
+    that:
+      - nagiossso_allowed_emails | length > 0
+    fail_msg: >-
+      The nominal allowlist is empty and deploying it would revoke everyone's
+      access. This happens when the Auth0 sync runs without the role that loads
+      the Nagios contacts. Run both together, for example:
+      --tags nagiosconfig,nagiossso-auth0
+  when: not (nagiossso_allow_empty_allowlist | default(false) | bool)
+  run_once: true
+
+- name: Render the Auth0 allowlist action
+  ansible.builtin.set_fact:
+    __nagiossso_action_code: "{{ lookup('ansible.builtin.template', 'auth0-allowlist-action.js.j2') | trim }}"
+  run_once: true
+
+- name: Request an Auth0 management API token
+  ansible.builtin.uri:
+    url: "https://{{ nagiossso_auth0_domain }}/oauth/token"
+    method: POST
+    body_format: json
+    body:
+      audience: "https://{{ nagiossso_auth0_domain }}/api/v2/"
+      client_id: "{{ nagiossso_auth0_mgmt_client_id }}"
+      client_secret: "{{ nagiossso_auth0_mgmt_client_secret }}"
+      grant_type: client_credentials
+    status_code: [200]
+  register: __nagiossso_token
+  delegate_to: localhost
+  become: false
+  run_once: true
+  changed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Look up the Auth0 allowlist action
+  ansible.builtin.uri:
+    url: >-
+      https://{{ nagiossso_auth0_domain }}/api/v2/actions/actions?actionName={{
+      nagiossso_auth0_action_name | urlencode }}&triggerId=post-login
+    method: GET
+    headers:
+      Authorization: "Bearer {{ __nagiossso_token.json.access_token }}"
+    status_code: [200]
+  register: __nagiossso_lookup
+  delegate_to: localhost
+  become: false
+  run_once: true
+  changed_when: false
+  check_mode: false
+  no_log: "{{ nagiossso_auth0_no_log }}"
+
+- name: Select the current allowlist action
+  ansible.builtin.set_fact:
+    __nagiossso_action: >-
+      {{ (__nagiossso_lookup.json.actions | default([]))
+         | selectattr('name', 'equalto', nagiossso_auth0_action_name)
+         | list | first | default({}) }}
+  run_once: true
+
+- name: Create the Auth0 allowlist action
+  ansible.builtin.uri:
+    url: "https://{{ nagiossso_auth0_domain }}/api/v2/actions/actions"
+    method: POST
+    body_format: json
+    body:
+      code: "{{ __nagiossso_action_code }}"
+      dependencies: []
+      name: "{{ nagiossso_auth0_action_name }}"
+      runtime: "{{ nagiossso_auth0_action_runtime }}"
+      supported_triggers:
+        - id: post-login
+          version: v3
+    headers:
+      Authorization: "Bearer {{ __nagiossso_token.json.access_token }}"
+    status_code: [201]
+  register: __nagiossso_create
+  delegate_to: localhost
+  become: false
+  run_once: true
+  no_log: "{{ nagiossso_auth0_no_log }}"
+  when: __nagiossso_action | length == 0
+
+- name: Update the Auth0 allowlist action
+  ansible.builtin.uri:
+    url: "https://{{ nagiossso_auth0_domain }}/api/v2/actions/actions/{{ __nagiossso_action.id }}"
+    method: PATCH
+    body_format: json
+    body:
+      code: "{{ __nagiossso_action_code }}"
+    headers:
+      Authorization: "Bearer {{ __nagiossso_token.json.access_token }}"
+    status_code: [200]
+  register: __nagiossso_update
+  delegate_to: localhost
+  become: false
+  run_once: true
+  no_log: "{{ nagiossso_auth0_no_log }}"
+  when:
+    - __nagiossso_action | length > 0
+    - (__nagiossso_action.code | default('') | trim) != __nagiossso_action_code
+
+- name: Resolve the allowlist action id
+  ansible.builtin.set_fact:
+    __nagiossso_action_id: >-
+      {{ __nagiossso_action.id | default(__nagiossso_create.json.id | default('')) }}
+  run_once: true
+
+- name: Deploy the Auth0 allowlist action
+  ansible.builtin.uri:
+    url: >-
+      https://{{ nagiossso_auth0_domain }}/api/v2/actions/actions/{{
+      __nagiossso_action_id }}/deploy
+    method: POST
+    headers:
+      Authorization: "Bearer {{ __nagiossso_token.json.access_token }}"
+    status_code: [202]
+  delegate_to: localhost
+  become: false
+  run_once: true
+  changed_when: true
+  no_log: "{{ nagiossso_auth0_no_log }}"
+  when: >-
+    __nagiossso_create is changed or __nagiossso_update is changed
+    or not (__nagiossso_action.all_changes_deployed | default(true))
+
+- name: Read the post-login trigger bindings
+  ansible.builtin.uri:
+    url: "https://{{ nagiossso_auth0_domain }}/api/v2/actions/triggers/post-login/bindings"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ __nagiossso_token.json.access_token }}"
+    status_code: [200]
+  register: __nagiossso_bindings
+  delegate_to: localhost
+  become: false
+  run_once: true
+  changed_when: false
+  check_mode: false
+  no_log: "{{ nagiossso_auth0_no_log }}"
+
+- name: List the actions already bound to post-login
+  ansible.builtin.set_fact:
+    __nagiossso_bound: >-
+      {{ __nagiossso_bindings.json.bindings | default([]) | map(attribute='action.name') | list }}
+    __nagiossso_desired_bindings: []
+  run_once: true
+
+- name: Build the desired post-login bindings
+  ansible.builtin.set_fact:
+    __nagiossso_desired_bindings: >-
+      {{ __nagiossso_desired_bindings
+         + [{'ref': {'type': 'action_name', 'value': __nagiossso_binding},
+             'display_name': __nagiossso_binding}] }}
+  loop: "{{ __nagiossso_bound + [nagiossso_auth0_action_name] }}"
+  loop_control:
+    loop_var: __nagiossso_binding
+  run_once: true
+
+- name: Bind the allowlist action to the post-login trigger
+  ansible.builtin.uri:
+    url: "https://{{ nagiossso_auth0_domain }}/api/v2/actions/triggers/post-login/bindings"
+    method: PATCH
+    body_format: json
+    body:
+      bindings: "{{ __nagiossso_desired_bindings }}"
+    headers:
+      Authorization: "Bearer {{ __nagiossso_token.json.access_token }}"
+    status_code: [200]
+  delegate_to: localhost
+  become: false
+  run_once: true
+  no_log: "{{ nagiossso_auth0_no_log }}"
+  when: nagiossso_auth0_action_name not in __nagiossso_bound
+
+- name: Assert every allowlisted address has a nagios contact
+  ansible.builtin.assert:
+    that:
+      - __nagiossso_orphans | length == 0
+    fail_msg: >-
+      These addresses are allowed to authenticate but have no matching Nagios contact,
+      so they would log in and see nothing: {{ __nagiossso_orphans | join(', ') }}.
+      The contact_name must be the address the provider returns, in lowercase.
+  vars:
+    __nagiossso_orphans: >-
+      {{ nagiossso_allowed_emails
+         | difference((nagiosconfig_contacts | default({})).keys() | map('lower') | list) }}
+  run_once: true
+  when: nagiosconfig_contacts is defined

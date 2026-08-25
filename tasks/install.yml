@@ -1,0 +1,18 @@
+---
+- name: Install the OIDC apache module
+  ansible.builtin.package:
+    name: "{{ nagiossso_packages }}"
+    state: present
+  become: true
+
+- name: Enable the OIDC apache module
+  ansible.builtin.command:
+    cmd: a2enmod auth_openidc
+  register: __nagiossso_a2enmod
+  become: true
+  changed_when: "'Enabling module' in __nagiossso_a2enmod.stdout"
+  failed_when: >-
+    __nagiossso_a2enmod.rc > 0 or
+    (__nagiossso_a2enmod.stderr is defined and __nagiossso_a2enmod.stderr | length > 0)
+  notify: Reload nagiossso web server
+  when: ansible_facts['os_family'] == 'Debian'

@@ -1,0 +1,39 @@
+/**
+ * Ansible managed - ansible_nagiossso
+ *
+ * The header is fixed text on purpose. It does not use the ansible_managed
+ * variable: if that variable carried a date or a host name, the code would
+ * change on every run and break the comparison that keeps this Action
+ * idempotent.
+ *
+ * Generated from the Nagios contacts flagged with `sso: true`. Do not edit it
+ * in the Auth0 console, the next Ansible run overwrites it.
+ */
+const NAGIOS_CLIENT_ID = {{ nagiossso_client_id | to_json }};
+const ALLOWED_DOMAINS = {{ nagiossso_allowed_domains | sort | to_json }};
+const ALLOWED_EMAILS = {{ nagiossso_allowed_emails | to_json }};
+
+exports.onExecutePostLogin = async (event, api) => {
+  // Post-login Actions run for every application in the tenant, not only for
+  // the one that started the login. Without this guard we would also deny the
+  // logins of any other app that uses the same Auth0 tenant.
+  if (event.client.client_id !== NAGIOS_CLIENT_ID) {
+    return;
+  }
+
+  const email = (event.user.email || '').toLowerCase();
+
+  if (!event.user.email_verified) {
+    return api.access.deny('Tu correo no está verificado.');
+  }
+
+  if (ALLOWED_DOMAINS.some((domain) => email.endsWith('@' + domain))) {
+    return;
+  }
+
+  if (ALLOWED_EMAILS.includes(email)) {
+    return;
+  }
+
+  api.access.deny('No estás autorizado para acceder a Nagios.');
+};

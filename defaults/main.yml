@@ -1,0 +1,44 @@
+---
+nagiossso_enabled: false
+
+nagiossso_provider_metadata_url: ""
+nagiossso_client_id: ""
+nagiossso_client_secret: ""
+nagiossso_crypto_passphrase: ""
+
+nagiossso_redirect_uri: "https://{{ inventory_hostname }}/nagios4/redirect_uri"
+nagiossso_scope: openid email profile
+nagiossso_remote_user_claim: email
+nagiossso_pkce_method: S256
+nagiossso_session_inactivity_timeout: 3600
+nagiossso_session_max_duration: 28800
+
+nagiossso_protected_paths:
+  - /etc/nagios4/stylesheets
+  - /usr/lib/cgi-bin/nagios4
+  - /usr/share/nagios4/htdocs
+
+nagiossso_pnp4nagios_path: /usr/local/pnp4nagios/share
+
+nagiossso_breakglass_enabled: true
+nagiossso_breakglass_address: 127.0.0.1
+nagiossso_htpasswd_file: /etc/nagios4/htpasswd.users
+
+nagiossso_manage_action: false
+nagiossso_auth0_domain: ""
+nagiossso_auth0_mgmt_client_id: ""
+nagiossso_auth0_mgmt_client_secret: ""
+nagiossso_auth0_action_name: nagios-allowlist
+nagiossso_auth0_action_runtime: node22
+nagiossso_auth0_no_log: true
+
+nagiossso_allowed_domains: []
+nagiossso_allowed_emails: >-
+  {{ __nagiossso_sso_contacts | difference(__nagiossso_absent_contacts) | sort }}
+nagiossso_allow_empty_allowlist: false
+
+nagiossso_packages: "{{ __nagiossso_packages[ansible_facts['os_family']] }}"
+nagiossso_apache_service: "{{ __nagiossso_apache_service[ansible_facts['os_family']] }}"
+nagiossso_apache_conf_dir: "{{ __nagiossso_apache_conf_dir[ansible_facts['os_family']] }}"
+nagiossso_apache_conf_file: zz-nagiossso.conf
+nagiossso_apache_configtest: /usr/sbin/apachectl -t

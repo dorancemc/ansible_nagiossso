@@ -1,0 +1,6 @@
+---
+- name: Reload nagiossso web server
+  ansible.builtin.systemd_service:
+    name: "{{ nagiossso_apache_service }}"
+    state: reloaded
+  become: true

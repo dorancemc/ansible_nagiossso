@@ -1,0 +1,23 @@
+---
+- name: Assert the OIDC client parameters are set
+  ansible.builtin.assert:
+    that:
+      - nagiossso_client_id | length > 0
+      - nagiossso_client_secret | length > 0
+      - nagiossso_crypto_passphrase | length > 0
+      - nagiossso_provider_metadata_url | length > 0
+    fail_msg: >-
+      nagiossso is enabled but the OIDC client is incomplete. Set
+      nagiossso_provider_metadata_url, nagiossso_client_id, nagiossso_client_secret and
+      nagiossso_crypto_passphrase in your inventory. The secrets belong in a group_vars
+      vault file, encrypted value by value.
+  no_log: true
+
+- name: Assert the protected paths are absolute
+  ansible.builtin.assert:
+    that:
+      - nagiossso_protected_paths | length > 0
+      - nagiossso_protected_paths | select('match', '^/') | list | length == nagiossso_protected_paths | length
+    fail_msg: >-
+      nagiossso_protected_paths must be absolute filesystem paths, not URLs. They become the
+      alternatives of a <DirectoryMatch> regex.

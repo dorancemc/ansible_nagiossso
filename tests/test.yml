@@ -1,0 +1,6 @@
+---
+- name: Test ansible_nagiossso role
+  hosts: all
+  become: true
+  roles:
+    - ansible_nagiossso

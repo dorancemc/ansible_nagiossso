@@ -1,0 +1,7 @@
+.ansible/
+.python-version
+.cursor/
+# Never commit a self-referencing symlink with an absolute path at the root:
+# ansible-galaxy extracts with the tarfile `data` filter and rejects any
+# linkname outside the destination ("Invalid linkname for tarfile member").
+/ansible_nagiossso

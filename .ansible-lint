@@ -1,0 +1,11 @@
+---
+offline: true
+
+loop_var_prefix: "^(__|{role}_)"
+var_naming_pattern: "^[a-z_][a-z0-9_]*$"
+
+enable_list:
+  - only-builtins
+
+skip_list:
+  - command-instead-of-module

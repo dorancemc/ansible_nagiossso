@@ -1,0 +1,60 @@
+# {{ ansible_managed }}
+#
+# Managed by the ansible_nagiossso role. Manual edits are lost on the next run.
+#
+# The "zz-" prefix is not cosmetic. This file must load last inside
+# conf-enabled/*.conf so its authorization directives replace the ones written
+# by other roles. Removing the prefix returns control to Basic auth silently,
+# with no error. Check with: curl -sI https://<host>/<path>/ -> expect 302.
+
+OIDCProviderMetadataURL      {{ nagiossso_provider_metadata_url }}
+OIDCClientID                 {{ nagiossso_client_id }}
+OIDCClientSecret             {{ nagiossso_client_secret }}
+OIDCCryptoPassphrase         {{ nagiossso_crypto_passphrase }}
+OIDCRedirectURI              {{ nagiossso_redirect_uri }}
+OIDCScope                    "{{ nagiossso_scope }}"
+OIDCRemoteUserClaim          {{ nagiossso_remote_user_claim }}
+OIDCPKCEMethod               {{ nagiossso_pkce_method }}
+OIDCSessionInactivityTimeout {{ nagiossso_session_inactivity_timeout }}
+OIDCSessionMaxDuration       {{ nagiossso_session_max_duration }}
+OIDCCookiePath               /
+
+<DirectoryMatch "^({{ nagiossso_protected_paths | sort | join('|') }})">
+    AuthMerging Off
+{% if nagiossso_breakglass_enabled %}
+    <If "%{REMOTE_ADDR} == '{{ nagiossso_breakglass_address }}'">
+        # Break-glass, reachable only through an SSH tunnel.
+        AuthType Basic
+        AuthName "Nagios (break-glass)"
+        AuthBasicProvider file
+        AuthUserFile {{ nagiossso_htpasswd_file }}
+        Require valid-user
+    </If>
+    <Else>
+        AuthType openid-connect
+        Require valid-user
+        Require claim email_verified:true
+    </Else>
+{% else %}
+    AuthType openid-connect
+    Require valid-user
+    Require claim email_verified:true
+{% endif %}
+</DirectoryMatch>
+
+{% if nagiossso_pnp4nagios_path | length > 0 %}
+# PNP4Nagios graphs are fetched by the browser from inside the web interface,
+# so Basic auth here would show a password dialog. Localhost stays open because
+# process_perfdata.pl reads it without credentials.
+<DirectoryMatch "^{{ nagiossso_pnp4nagios_path }}">
+    AuthMerging Off
+    <If "%{REMOTE_ADDR} == '{{ nagiossso_breakglass_address }}'">
+        Require all granted
+    </If>
+    <Else>
+        AuthType openid-connect
+        Require valid-user
+        Require claim email_verified:true
+    </Else>
+</DirectoryMatch>
+{% endif %}

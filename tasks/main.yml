@@ -1,0 +1,19 @@
+---
+- name: Validate the role parameters
+  ansible.builtin.import_tasks: assert.yml
+  tags:
+    - nagiossso
+    - nagiossso-config
+    - nagiossso-install
+
+- name: Install the OIDC apache module
+  ansible.builtin.import_tasks: install.yml
+  tags:
+    - nagiossso
+    - nagiossso-install
+
+- name: Configure the OIDC apache module
+  ansible.builtin.import_tasks: config.yml
+  tags:
+    - nagiossso
+    - nagiossso-config

@@ -1,0 +1,22 @@
+---
+galaxy_info:
+  author: Dorance Martinez
+  company: DMCi.co
+  description: OIDC single sign-on for the Nagios Core web interface, brokered by Auth0.
+  role_name: ansible_nagiossso
+  license: Apache-2.0
+  min_ansible_version: "2.20"
+  platforms:
+    - name: Debian
+      versions:
+        - trixie
+    - name: EL
+      versions:
+        - "9"
+  galaxy_tags:
+    - auth0
+    - nagios
+    - oidc
+    - sso
+
+dependencies: []

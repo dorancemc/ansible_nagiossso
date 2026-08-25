@@ -1,0 +1,33 @@
+---
+- name: Deploy the OIDC apache configuration
+  ansible.builtin.template:
+    src: zz-nagiossso.conf.j2
+    dest: "{{ nagiossso_apache_conf_dir }}/{{ nagiossso_apache_conf_file }}"
+    owner: root
+    group: root
+    mode: "0640"
+    backup: true
+  become: true
+  no_log: true
+  diff: false
+  notify: Reload nagiossso web server
+
+- name: Enable the OIDC apache configuration
+  ansible.builtin.command:
+    cmd: a2enconf {{ nagiossso_apache_conf_file | regex_replace('\.conf$', '') }}
+  register: __nagiossso_a2enconf
+  become: true
+  changed_when: "'Enabling conf' in __nagiossso_a2enconf.stdout"
+  failed_when: >-
+    __nagiossso_a2enconf.rc > 0 or
+    (__nagiossso_a2enconf.stderr is defined and __nagiossso_a2enconf.stderr | length > 0)
+  notify: Reload nagiossso web server
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: Validate the apache configuration
+  ansible.builtin.command:
+    cmd: "{{ nagiossso_apache_configtest }}"
+  register: __nagiossso_configtest
+  become: true
+  changed_when: false
+  failed_when: __nagiossso_configtest.rc != 0
