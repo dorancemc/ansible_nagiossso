@@ -13,6 +13,17 @@ nagiossso_pkce_method: S256
 nagiossso_session_inactivity_timeout: 3600
 nagiossso_session_max_duration: 28800
 
+# Destinos que mod_auth_openidc acepta en los parametros ?logout= y
+# ?target_link_uri= de la redirect URI. Son EXPRESIONES REGULARES, no URLs
+# literales, y sin anclar coinciden parcialmente: un patron laxo convierte la
+# redirect URI en un open redirect.
+#
+# Vacio conserva el comportamiento por defecto del modulo, que solo admite
+# destinos del propio host y devuelve 400 con cualquier otro. En cuanto se
+# define un patron esa regla por host DEJA de aplicarse y la lista pasa a ser la
+# unica fuente, asi que el propio sitio tiene que aparecer en ella.
+nagiossso_redirect_urls_allowed: []
+
 nagiossso_protected_paths:
   - /etc/nagios4/stylesheets
   - /usr/lib/cgi-bin/nagios4

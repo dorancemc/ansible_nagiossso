@@ -18,6 +18,16 @@ OIDCPKCEMethod               {{ nagiossso_pkce_method }}
 OIDCSessionInactivityTimeout {{ nagiossso_session_inactivity_timeout }}
 OIDCSessionMaxDuration       {{ nagiossso_session_max_duration }}
 OIDCCookiePath               /
+{% if nagiossso_redirect_urls_allowed | length > 0 %}
+# Without this, mod_auth_openidc only accepts ?logout= and ?target_link_uri=
+# targets on the request's own host and answers 400 for anything else, which
+# breaks chaining the local logout into the IdP's. Defining it switches the
+# host rule off entirely: these patterns become the only source, so the site
+# itself has to be listed here too.
+{% for __url in nagiossso_redirect_urls_allowed %}
+OIDCRedirectURLsAllowed      "{{ __url }}"
+{% endfor %}
+{% endif %}
 
 <DirectoryMatch "^({{ nagiossso_protected_paths | sort | join('|') }})">
     AuthMerging Off
