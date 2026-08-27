@@ -1,6 +1,7 @@
 ---
 __nagiossso_packages:
   Debian:
+    - apache2
     - libapache2-mod-auth-openidc
   RedHat:
     - mod_auth_openidc
