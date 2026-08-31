@@ -171,7 +171,7 @@
     method: POST
     headers:
       Authorization: "Bearer {{ __nagiossso_token.json.access_token }}"
-    status_code: [202]
+    status_code: [200, 202]
   delegate_to: localhost
   become: false
   run_once: true
