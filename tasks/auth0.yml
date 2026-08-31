@@ -25,6 +25,47 @@
   when: not (nagiossso_allow_empty_allowlist | default(false) | bool)
   run_once: true
 
+- name: Assert the claim parameters are coherent
+  ansible.builtin.assert:
+    that:
+      - nagiossso_claim_client_ids | length > 0
+      - nagiossso_claim_operator_value not in nagiossso_claim_allowed_values
+    fail_msg: >-
+      nagiossso_claim_namespace is set, so it needs at least one client id to
+      publish the claim to, and the operator value must not also be one of the
+      allowed values or a regular member would land in the operator organisation.
+  when: nagiossso_claim_namespace | length > 0
+  run_once: true
+
+- name: Start the claim map empty
+  ansible.builtin.set_fact:
+    __nagiossso_claim_values: {}
+  when: nagiossso_claim_namespace | length > 0
+  run_once: true
+
+# El grupo de operacion se antepone en vez de sustituir: quien opera y ademas es
+# contacto de un tenant conserva los dos. Y sale de pertenecer al grupo, no de no
+# tener ninguno: asi un contactgroup mal escrito deja el claim vacio y la
+# aplicacion deniega, en vez de convertirlo en operador en silencio.
+- name: Build the claim map from the contact groups
+  ansible.builtin.set_fact:
+    __nagiossso_claim_values: >-
+      {{ __nagiossso_claim_values | combine({__nagiossso_claim_email: (
+           ([nagiossso_claim_operator_value]
+            if nagiossso_claim_operator_group in __nagiossso_claim_groups else [])
+           + (__nagiossso_claim_groups | intersect(nagiossso_claim_allowed_values))
+         ) | unique | list}) }}
+  vars:
+    __nagiossso_claim_groups: >-
+      {{ (__nagiossso_contacts_lower[__nagiossso_claim_email] | default({})).contactgroups
+         | default('') | split(',') | map('trim') | select | list }}
+  loop: "{{ nagiossso_allowed_emails }}"
+  loop_control:
+    loop_var: __nagiossso_claim_email
+    label: "{{ __nagiossso_claim_email }}"
+  when: nagiossso_claim_namespace | length > 0
+  run_once: true
+
 - name: Render the Auth0 allowlist action
   ansible.builtin.set_fact:
     __nagiossso_action_code: "{{ lookup('ansible.builtin.template', 'auth0-allowlist-action.js.j2') | trim }}"

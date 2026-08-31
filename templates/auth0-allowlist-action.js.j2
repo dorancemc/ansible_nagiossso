@@ -12,8 +12,28 @@
 const NAGIOS_CLIENT_ID = {{ nagiossso_client_id | to_json }};
 const ALLOWED_DOMAINS = {{ nagiossso_allowed_domains | sort | to_json }};
 const ALLOWED_EMAILS = {{ nagiossso_allowed_emails | to_json }};
+{% if nagiossso_claim_namespace | length > 0 %}
+const CLAIM_NAMESPACE = {{ nagiossso_claim_namespace | to_json }};
+const CLAIM_CLIENT_IDS = {{ nagiossso_claim_client_ids | sort | to_json }};
+const CLAIM_VALUES = {{ nagiossso_claim_values | to_json }};
+{% endif %}
 
 exports.onExecutePostLogin = async (event, api) => {
+{% if nagiossso_claim_namespace | length > 0 %}
+  // Publishes the organisations of the user for the apps that resolve access
+  // from the token. It never denies: an app that receives an empty claim
+  // rejects the login on its own, and denying here would turn one app's
+  // authorisation rule into a failure of every login in the tenant.
+  //
+  // The address is read again instead of reusing the constant below so that
+  // this block stays additive: with the claim disabled the generated code is
+  // byte for byte the one without it, which keeps the Action idempotent.
+  if (CLAIM_CLIENT_IDS.includes(event.client.client_id) && event.user.email_verified) {
+    const claimEmail = (event.user.email || '').toLowerCase();
+    api.idToken.setCustomClaim(CLAIM_NAMESPACE, CLAIM_VALUES[claimEmail] || []);
+  }
+
+{% endif %}
   // Post-login Actions run for every application in the tenant, not only for
   // the one that started the login. Without this guard we would also deny the
   // logins of any other app that uses the same Auth0 tenant.

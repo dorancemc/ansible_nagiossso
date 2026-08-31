@@ -23,3 +23,9 @@ __nagiossso_absent_contacts: >-
   {{ (nagiosconfig_contacts | default({})) | dict2items
      | selectattr('value.state', 'defined') | selectattr('value.state', 'equalto', 'absent')
      | map(attribute='key') | map('lower') | list }}
+
+# Los contactos reindexados en minusculas: las claves de nagiosconfig_contacts
+# conservan como se escribieron, pero las listas derivadas van en minusculas.
+__nagiossso_contacts_lower: >-
+  {{ dict((nagiosconfig_contacts | default({})).keys() | map('lower')
+          | zip((nagiosconfig_contacts | default({})).values())) }}

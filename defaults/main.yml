@@ -48,6 +48,16 @@ nagiossso_allowed_emails: >-
   {{ __nagiossso_sso_contacts | difference(__nagiossso_absent_contacts) | sort }}
 nagiossso_allow_empty_allowlist: false
 
+# Claim de pertenencia a organizaciones, para aplicaciones que resuelven el
+# acceso con el token en vez de con su propia lista. Vacio = no se emite y el
+# codigo de la Action no cambia.
+nagiossso_claim_namespace: ""
+nagiossso_claim_client_ids: []
+nagiossso_claim_allowed_values: []
+nagiossso_claim_operator_group: ""
+nagiossso_claim_operator_value: ""
+nagiossso_claim_values: "{{ __nagiossso_claim_values | default({}) }}"
+
 nagiossso_packages: "{{ __nagiossso_packages[ansible_facts['os_family']] }}"
 nagiossso_apache_service: "{{ __nagiossso_apache_service[ansible_facts['os_family']] }}"
 nagiossso_apache_conf_dir: "{{ __nagiossso_apache_conf_dir[ansible_facts['os_family']] }}"
